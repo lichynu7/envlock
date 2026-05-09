@@ -64,6 +64,28 @@ func TestRenderDiff_Empty(t *testing.T) {
 	}
 }
 
+func TestRenderDiff_MultipleEntries(t *testing.T) {
+	entries := []DiffEntry{
+		{Key: "ADDED_VAR", Kind: Added, NewValue: "new"},
+		{Key: "REMOVED_VAR", Kind: Removed, OldValue: "old"},
+		{Key: "CHANGED_VAR", Kind: Changed, OldValue: "before", NewValue: "after"},
+	}
+	var buf strings.Builder
+	if err := RenderDiff(&buf, entries); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "+ ADDED_VAR") {
+		t.Errorf("expected added entry in output, got: %s", out)
+	}
+	if !strings.Contains(out, "- REMOVED_VAR") {
+		t.Errorf("expected removed entry in output, got: %s", out)
+	}
+	if !strings.Contains(out, "~ CHANGED_VAR") {
+		t.Errorf("expected changed entry in output, got: %s", out)
+	}
+}
+
 func TestRenderSnapshot_ContainsLabel(t *testing.T) {
 	s := &Snapshot{
 		Label:      "ci-run",
