@@ -105,18 +105,22 @@ func TestRenderSnapshot_ContainsLabel(t *testing.T) {
 	}
 }
 
-func TestTruncate(t *testing.T) {
-	long := strings.Repeat("x", 100)
-	result := truncate(long, 80)
-	if len(result) > 83 {
-		t.Errorf("expected truncated string, got length %d", len(result))
+func TestRenderSnapshot_CapturedAtTimestamp(t *testing.T) {
+	now := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	s := &Snapshot{
+		Label:      "ts-test",
+		CapturedAt: now,
+		Vars:       map[string]string{},
 	}
-	if !strings.HasSuffix(result, "...") {
-		t.Errorf("expected ellipsis suffix, got: %s", result)
+	var buf strings.Builder
+	if err := RenderSnapshot(&buf, s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	short := "hello"
-	if truncate(short, 80) != short {
-		t.Errorf("expected unchanged short string")
+	out := buf.String()
+	if !strings.Contains(out, "2024") {
+		t.Errorf("expected timestamp year in output, got: %s", out)
 	}
 }
+
+func TestTruncate(t *testing.T) {
+	long := strings.Repeat
