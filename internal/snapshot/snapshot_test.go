@@ -58,6 +58,10 @@ func TestMarshalUnmarshal_RoundTrip(t *testing.T) {
 	if restored.Vars["ENVLOCK_ROUND_TRIP"] != "42" {
 		t.Errorf("var mismatch after round-trip")
 	}
+	// Verify timestamp is preserved through marshal/unmarshal
+	if !restored.Timestamp.Equal(orig.Timestamp) {
+		t.Errorf("timestamp mismatch: got %v, want %v", restored.Timestamp, orig.Timestamp)
+	}
 }
 
 func TestMarshal_ValidJSON(t *testing.T) {
@@ -82,5 +86,15 @@ func TestSortedKeys_Order(t *testing.T) {
 		if k != expected[i] {
 			t.Errorf("key[%d]: got %q, want %q", i, k, expected[i])
 		}
+	}
+}
+
+func TestSortedKeys_EmptyVars(t *testing.T) {
+	s := &snapshot.Snapshot{
+		Vars: map[string]string{},
+	}
+	keys := s.SortedKeys()
+	if len(keys) != 0 {
+		t.Errorf("expected empty keys slice, got %v", keys)
 	}
 }
