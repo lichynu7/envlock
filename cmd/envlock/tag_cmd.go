@@ -12,6 +12,11 @@ import (
 // runTag handles the "tag" subcommand, which allows adding, removing, and
 // listing tags associated with snapshots. Tags provide a human-friendly way
 // to group or label snapshots for later retrieval.
+//
+// Usage:
+//
+//	envlock tag [--list] [<tag>]           # list all tags, or snapshots for a tag
+//	envlock tag [--remove] <tag> <label>   # add or remove a tag from a snapshot
 func runTag(args []string, out io.Writer, storeDir string) error {
 	fs := flag.NewFlagSet("tag", flag.ContinueOnError)
 	fs.SetOutput(out)
@@ -57,8 +62,8 @@ func runTag(args []string, out io.Writer, storeDir string) error {
 	}
 	tag, label := remaining[0], remaining[1]
 
-	if strings.TrimSpace(tag) == "" || strings.TrimSpace(label) == "" {
-		return fmt.Errorf("tag and label must not be empty or whitespace")
+	if err := validateTagAndLabel(tag, label); err != nil {
+		return err
 	}
 
 	if *remove {
@@ -73,5 +78,17 @@ func runTag(args []string, out io.Writer, storeDir string) error {
 		return fmt.Errorf("adding tag: %w", err)
 	}
 	fmt.Fprintf(out, "tagged snapshot %q with %q\n", label, tag)
+	return nil
+}
+
+// validateTagAndLabel returns an error if tag or label are empty or
+// consist solely of whitespace characters.
+func validateTagAndLabel(tag, label string) error {
+	if strings.TrimSpace(tag) == "" {
+		return fmt.Errorf("tag must not be empty or whitespace")
+	}
+	if strings.TrimSpace(label) == "" {
+		return fmt.Errorf("label must not be empty or whitespace")
+	}
 	return nil
 }
