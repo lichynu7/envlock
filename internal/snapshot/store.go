@@ -1,78 +1,80 @@
 package snapshot
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-const defaultDir = ".envlock"
-
-// Store manages persistence of snapshots on disk.
+// Store persists snapshots on disk as JSON files.
 type Store struct {
-	Dir string
+	dir string
 }
 
-// DefaultStore returns a Store using the default directory under the current
-// working directory.
-func DefaultStore() (*Store, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("getting working directory: %w", err)
+// DefaultStore returns a Store rooted at dir, creating it if necessary.
+func DefaultStore(dir string) (*Store, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, fmt.Errorf("store: mkdir %q: %w", dir, err)
 	}
-	return &Store{Dir: filepath.Join(cwd, defaultDir)}, nil
+	return &Store{dir: dir}, nil
 }
 
-// Save writes a snapshot to disk as <label>.json (or timestamp if no label).
-func (st *Store) Save(s *Snapshot) (string, error) {
-	if err := os.MkdirAll(st.Dir, 0o755); err != nil {
-		return "", fmt.Errorf("creating store dir: %w", err)
-	}
-
-	name := s.Label
-	if name == "" {
-		name = s.Timestamp.Format("20060102T150405Z")
-	}
-	path := filepath.Join(st.Dir, name+".json")
-
-	data, err := s.Marshal()
-	if err != nil {
-		return "", fmt.Errorf("marshalling snapshot: %w", err)
-	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return "", fmt.Errorf("writing snapshot file: %w", err)
-	}
-	return path, nil
+func (s *Store) path(label string) string {
+	return filepath.Join(s.dir, label+".json")
 }
 
-// Load reads a snapshot from disk by label (filename without .json).
-func (st *Store) Load(label string) (*Snapshot, error) {
-	path := filepath.Join(st.Dir, label+".json")
-	data, err := os.ReadFile(path)
+// Save writes snap to disk, overwriting any existing file with the same label.
+func (s *Store) Save(snap Snapshot) error {
+	data, err := Marshal(snap)
 	if err != nil {
-		return nil, fmt.Errorf("reading snapshot %q: %w", label, err)
+		return fmt.Errorf("store save: %w", err)
 	}
-	s, err := Unmarshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("parsing snapshot %q: %w", label, err)
+	if err := os.WriteFile(s.path(snap.Label), data, 0o644); err != nil {
+		return fmt.Errorf("store save: write %q: %w", snap.Label, err)
 	}
-	return s, nil
+	return nil
 }
 
-// List returns the labels of all stored snapshots.
-func (st *Store) List() ([]string, error) {
-	entries, err := os.ReadDir(st.Dir)
+// Load reads and returns the snapshot with the given label.
+func (s *Store) Load(label string) (Snapshot, error) {
+	data, err := os.ReadFile(s.path(label))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return Snapshot{}, fmt.Errorf("snapshot %q not found", label)
 		}
-		return nil, fmt.Errorf("reading store dir: %w", err)
+		return Snapshot{}, fmt.Errorf("store load: %w", err)
+	}
+	var snap Snapshot
+	if err := json.Unmarshal(data, &snap); err != nil {
+		return Snapshot{}, fmt.Errorf("store load: unmarshal: %w", err)
+	}
+	return snap, nil
+}
+
+// List returns all snapshot labels stored in the directory.
+func (s *Store) List() ([]string, error) {
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return nil, fmt.Errorf("store list: %w", err)
 	}
 	var labels []string
 	for _, e := range entries {
-		if !e.IsDir() && filepath.Ext(e.Name()) == ".json" {
-			labels = append(labels, e.Name()[:len(e.Name())-5])
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") {
+			labels = append(labels, strings.TrimSuffix(e.Name(), ".json"))
 		}
 	}
 	return labels, nil
+}
+
+// Delete removes the snapshot file for the given label.
+func (s *Store) Delete(label string) error {
+	if err := os.Remove(s.path(label)); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("snapshot %q not found", label)
+		}
+		return fmt.Errorf("store delete %q: %w", label, err)
+	}
+	return nil
 }
