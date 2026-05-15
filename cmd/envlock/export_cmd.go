@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/user/envlock/internal/snapshot"
 )
@@ -25,6 +26,9 @@ func runExport(args []string) error {
 		case "--format=dotenv", "-f=dotenv":
 			format = snapshot.FormatDotEnv
 		default:
+			if strings.HasPrefix(arg, "--format=") || strings.HasPrefix(arg, "-f=") {
+				return fmt.Errorf("unsupported format %q: must be one of json, csv, dotenv", arg)
+			}
 			return fmt.Errorf("unknown flag: %q", arg)
 		}
 	}
