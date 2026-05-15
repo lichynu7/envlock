@@ -62,6 +62,30 @@ func TestDiff_NoChanges(t *testing.T) {
 	}
 }
 
+func TestDiff_MultipleChanges(t *testing.T) {
+	base := makeSnapshot(map[string]string{"FOO": "bar", "OLD": "gone"})
+	target := makeSnapshot(map[string]string{"FOO": "baz", "NEW": "here"})
+
+	entries := Diff(base, target)
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 diff entries, got %d: %v", len(entries), entries)
+	}
+
+	statuses := map[string]DiffStatus{}
+	for _, e := range entries {
+		statuses[e.Key] = e.Status
+	}
+	if statuses["FOO"] != StatusChanged {
+		t.Errorf("expected FOO to be changed, got %v", statuses["FOO"])
+	}
+	if statuses["OLD"] != StatusRemoved {
+		t.Errorf("expected OLD to be removed, got %v", statuses["OLD"])
+	}
+	if statuses["NEW"] != StatusAdded {
+		t.Errorf("expected NEW to be added, got %v", statuses["NEW"])
+	}
+}
+
 func TestDiffEntry_String(t *testing.T) {
 	tests := []struct {
 		entry    DiffEntry
