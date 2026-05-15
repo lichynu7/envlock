@@ -9,6 +9,9 @@ import (
 	"github.com/user/envlock/internal/snapshot"
 )
 
+// runTag handles the "tag" subcommand, which allows adding, removing, and
+// listing tags associated with snapshots. Tags provide a human-friendly way
+// to group or label snapshots for later retrieval.
 func runTag(args []string, out io.Writer, storeDir string) error {
 	fs := flag.NewFlagSet("tag", flag.ContinueOnError)
 	fs.SetOutput(out)
@@ -53,6 +56,10 @@ func runTag(args []string, out io.Writer, storeDir string) error {
 		return fmt.Errorf("usage: envlock tag [--remove] <tag> <label>")
 	}
 	tag, label := remaining[0], remaining[1]
+
+	if strings.TrimSpace(tag) == "" || strings.TrimSpace(label) == "" {
+		return fmt.Errorf("tag and label must not be empty or whitespace")
+	}
 
 	if *remove {
 		if err := ts.Remove(tag, label); err != nil {
